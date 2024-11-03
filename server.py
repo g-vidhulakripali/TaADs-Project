@@ -19,7 +19,7 @@ app = cors(app, allow_origin="*")
 
 # Display server banner
 f = Figlet(font='slant')
-print(f.renderText('S E R V E R'))
+# print(f.renderText('S E R V E R'))
 
 # Load configurations from config.env
 logger = logging.getLogger(__name__)
