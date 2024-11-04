@@ -2,8 +2,8 @@ import pickle
 
 import torch
 from sentence_transformers import SentenceTransformer
-from include.config import env_config
-from include.logger import initialize_logger
+from system_configuration.config import env_config
+from system_configuration.logger import initialize_logger
 
 #It initialises the global variables
 def handler():

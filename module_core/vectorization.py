@@ -1,4 +1,4 @@
-from db import db_select
+from db import db_queries
 
 
 def vectorise_text(ctx, json_payload):

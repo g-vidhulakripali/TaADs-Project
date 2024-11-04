@@ -1,4 +1,4 @@
-from db.db_select import get_course_by_instructor, get_course_general
+from db.db_queries import get_course_by_instructor, get_course_general
 
 def list_course_by_instructor(ctx, json_payload):
     logger = ctx["logger"]

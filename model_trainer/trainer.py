@@ -2,7 +2,7 @@ import configparser
 import pickle
 from sentence_transformers import SentenceTransformer
 import torch
-from db.db_select import get_learning_obj_en
+from db.db_queries import get_learning_obj_en
 
 # Load configuration
 config = configparser.ConfigParser()

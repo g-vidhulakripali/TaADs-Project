@@ -1,6 +1,6 @@
 import logging
 import datetime
-from include.utils import *
+from system_configuration.utils import *
 
 
 def name_log_file(folder):
