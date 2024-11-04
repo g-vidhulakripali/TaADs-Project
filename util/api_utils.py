@@ -1,10 +1,8 @@
 import os
 import sqlite3
-import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
 from cachetools import cached, TTLCache
-import logging
 
 cache = TTLCache(maxsize=100, ttl=300)
 
@@ -28,7 +26,7 @@ def store_in_faiss(records, faiss_index_file):
         faiss.write_index(index, faiss_index_file)
 
     except Exception as e:
-        logger.error(f"Error storing vectors in Faiss index: {e}")
+        print(f"Error storing vectors in Faiss index: {e}")
         
 @cached(cache)
 def get_learning_obj_en(db_file):
@@ -41,7 +39,7 @@ def get_learning_obj_en(db_file):
         conn.close()
         return records
     except sqlite3.Error as e:
-        logger.error(f"SQLite error: {e}")
+        print(f"SQLite error: {e}")
         return []
 
 def load_faiss_index(faiss_index_file):
@@ -49,7 +47,7 @@ def load_faiss_index(faiss_index_file):
         index = faiss.read_index(faiss_index_file)
         return index
     except Exception as e:
-        logger.error(f"Error loading Faiss index: {e}")
+        print(f"Error loading Faiss index: {e}")
 
 @cached(cache)
 def vectorize_input(llm_name, user_input):

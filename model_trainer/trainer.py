@@ -24,7 +24,7 @@ def get_torch_device():
 
 def train_learning_obj_en(db, model_output):
     """
-    Trains a LLM using SentenceTransformer and the description from the skills in the ESCO database
+    Trains a LLM using SentenceTransformer and the description from the skills in the database
     @param db: path to database location
     @param model_output: output file containing the trained serialized language model
     @return: None
