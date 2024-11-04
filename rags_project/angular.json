@@ -3,9 +3,19 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "search-app": {
+    "rags_project": {
       "projectType": "application",
-      "schematics": {},
+      "schematics": {
+        "@schematics/angular:component": {
+          "standalone": false
+        },
+        "@schematics/angular:directive": {
+          "standalone": false
+        },
+        "@schematics/angular:pipe": {
+          "standalone": false
+        }
+      },
       "root": "",
       "sourceRoot": "src",
       "prefix": "app",
@@ -13,7 +23,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/search-app",
+            "outputPath": "dist/rags_project",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
@@ -23,15 +33,18 @@
             "assets": [
               {
                 "glob": "**/*",
-                "input": "src/assets",
-                "output": "/assets"
-              },
-              "src/favicon.ico"
+                "input": "public"
+              }
             ],
             "styles": [
               "src/styles.css"
             ],
-            "scripts": []
+            "scripts": [],
+            "server": "src/main.server.ts",
+            "prerender": true,
+            "ssr": {
+              "entry": "server.ts"
+            }
           },
           "configurations": {
             "production": {
@@ -61,10 +74,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "search-app:build:production"
+              "buildTarget": "rags_project:build:production"
             },
             "development": {
-              "buildTarget": "search-app:build:development"
+              "buildTarget": "rags_project:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -83,10 +96,8 @@
             "assets": [
               {
                 "glob": "**/*",
-                "input": "src/assets",
-                "output": "/assets"
-              },
-              "src/favicon.ico"
+                "input": "public"
+              }
             ],
             "styles": [
               "src/styles.css"
