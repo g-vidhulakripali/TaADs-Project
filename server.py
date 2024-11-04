@@ -6,28 +6,16 @@ from quart import Quart, request, jsonify
 from pyfiglet import Figlet
 from util.api_utils import vectorize_input, get_learning_obj_en, load_faiss_index
 
-
-# Load configuration
 config = configparser.ConfigParser()
 config.read('config.env')
 
-logging.getLogger('asyncio').setLevel(logging.ERROR)  # remove asyncio logging
-
-# Initialize the app
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
 
-# Display server banner
-f = Figlet(font='slant')
-# print(f.renderText('S E R V E R'))
-
-# Load configurations from config.env
-logger = logging.getLogger(__name__)
 llm_name = config['DEFAULT'].get('LLM_NAME')
 db_courses = config['DEFAULT'].get('DB_COURSES')
 faiss_index_file = "./data/faiss_index/faiss_index.idx"
 
-# Load data and Faiss index
 records = get_learning_obj_en(db_courses)
 index = load_faiss_index(faiss_index_file)
 if index is None or not records:
