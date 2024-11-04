@@ -8,7 +8,12 @@ cache = TTLCache(maxsize=100, ttl=300)
 
 @cached(cache)
 def vectorize_learning_obj(llm_name, learning_obj_tuple):
-    model = SentenceTransformer(llm_name)
+    try:
+        model = SentenceTransformer(llm_name)
+        print(f"Model '{llm_name}' is pretrained.")
+    except Exception as e:
+        print(f"Model '{llm_name}' is not trained. Training or loading required.")
+        raise e
     vectors = model.encode(list(learning_obj_tuple))  # Convert back to list for encoding
     return vectors
 
