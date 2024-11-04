@@ -23,11 +23,6 @@ def handler():
     huggingface_api_token = conf.get('HUGGINGFACE_API_KEY')
     db_courses = conf.get('DB_COURSES')
 
-    # --------------------------------------------------------
-    logger = initialize_logger(location_log_folder, log_level)
-    logger.debug('Server started')
-
-    # check best torch_device
     if torch.backends.mps.is_available():
         torch_device = torch.device('mps')
     elif torch.cuda.is_available():
@@ -35,9 +30,7 @@ def handler():
     else:
         torch_device = 'cpu'
 
-    # prepare global data, we may move this to the contexter
     st_object_model = SentenceTransformer(llm_name, device=torch_device)  # model object based on LLM
-    logger.debug('Loading global variables into contexter')
 
     context.update({"location_log_folder": location_log_folder})
     context.update({"log_level": log_level})
