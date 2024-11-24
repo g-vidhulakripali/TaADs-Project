@@ -3,32 +3,25 @@ import configparser
 import numpy as np
 from quart_cors import cors
 from quart import Quart, request, jsonify
-from pyfiglet import Figlet
-from util.api_utils import vectorize_input, get_learning_obj_en, load_faiss_index
+from util.api_utils import vectorize_input, get_learning_obj_en, load_faiss_index, store_in_faiss
 
-
-# Load configuration
 config = configparser.ConfigParser()
 config.read('config.env')
 
-logging.getLogger('asyncio').setLevel(logging.ERROR)  # remove asyncio logging
-
-# Initialize the app
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
 
-# Display server banner
-f = Figlet(font='slant')
-# print(f.renderText('S E R V E R'))
-
-# Load configurations from config.env
-logger = logging.getLogger(__name__)
 llm_name = config['DEFAULT'].get('LLM_NAME')
 db_courses = config['DEFAULT'].get('DB_COURSES')
-faiss_index_file = "./data/faiss_index/faiss_index.idx"
+db_file = "data/db/courses.sqlite"
+faiss_index_file = "data/faiss_index/faiss_index.idx"
+records = get_learning_obj_en(db_file)
+if records:
+    store_in_faiss(records, faiss_index_file)
+else:
+    print("No records found in the database.")
 
-# Load data and Faiss index
-records = get_learning_obj_en(db_courses)
+
 index = load_faiss_index(faiss_index_file)
 if index is None or not records:
     raise Exception("Faiss index or database records could not be loaded successfully.")
@@ -59,7 +52,7 @@ async def search():
         user_vector = vectorize_input(llm_name, query)
 
         # Perform search with optional filters
-        D, indices = index.search(np.array([user_vector]).astype('float32'), k=3)  # Changed 'top_k' to 'k'
+        D, indices = index.search(np.array([user_vector]).astype('float32'), k=3)
         filtered_indices = []
 
         for idx in indices[0]:

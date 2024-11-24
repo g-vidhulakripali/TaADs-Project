@@ -3,7 +3,6 @@ docx2python
 Levenshtein
 pandas
 numpy
-pyfiglet
 python-dotenv
 sentence-transformers
 torch

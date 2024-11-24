@@ -21,18 +21,18 @@ def get_learning_obj_en(db_file):
     return learning_obj
 
 
-def get_course_by_instructor(db_file, name):
-    conn = sqlite3.connect(db_file)
-    cursor = conn.cursor()
-    query = "SELECT * FROM zqm_module_en WHERE instructor LIKE ?"
-    cursor.execute(query, ('%' + name + '%',))
-    records = cursor.fetchall()
-    instructor = []
-    for row in records:
-        instructor.append([row[1]])
-    conn.close()
-    print(records)
-    return records
+# def get_course_by_instructor(db_file, name):
+#     conn = sqlite3.connect(db_file)
+#     cursor = conn.cursor()
+#     query = "SELECT * FROM zqm_module_en WHERE instructor LIKE ?"
+#     cursor.execute(query, ('%' + name + '%',))
+#     records = cursor.fetchall()
+#     instructor = []
+#     for row in records:
+#         instructor.append([row[1]])
+#     conn.close()
+#     print(records)
+#     return records
 
 
 def get_course_general(db_file, name):
