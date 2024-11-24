@@ -41,12 +41,13 @@ def store_in_faiss(records, faiss_index_file):
         if not os.path.exists(faiss_index_dir):
             os.makedirs(faiss_index_dir)
         llm_name = "sentence-transformers/all-MiniLM-L6-v2"
-        titles = [record[0] for record in records]  # Extract titles
+        titles = [f"{record[0]} {record[1]} {record[2]} {record[3]}" for record in records]
         vectors = vectorize_learning_obj(llm_name, tuple(titles))
 
         # Store vectors in FAISS index
         dim = vectors.shape[1]
-        index = faiss.IndexFlatL2(dim)
+        index = faiss.IndexFlatIP(dim)
+        vectors = np.array([vector / np.linalg.norm(vector) for vector in vectors])  # Normalize vectors
         index.add(vectors)
         faiss.write_index(index, faiss_index_file)
         print("Stored vectors in FAISS index.")
