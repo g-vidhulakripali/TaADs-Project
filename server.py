@@ -91,13 +91,13 @@ def cached_vectorize_input(user_input):
     return vector_model.encode([user_input])[0]
 
 
-def preprocess_query(query):
+def preprocess_query(query, vocabulary):
     """
     Preprocess the query by removing filler words, correcting common misspellings,
     and focusing on core terms.
     """
     # Define common terms to remove
-    common_terms = ["i", "want", "like", "need", "find", "please", "help", "courses", "course", "on"]
+    filler_words = ["i", "want", "like", "need", "find", "please", "help", "courses", "couse", "course", "on"]
 
     # Remove punctuation
     query = re.sub(r"[^\w\s]", "", query)
@@ -105,15 +105,30 @@ def preprocess_query(query):
     # Split query into words and process each word
     processed_words = []
     for word in query.lower().split():
-        # Correct misspellings using fuzzy matching
-        matches = difflib.get_close_matches(word, common_terms, n=1, cutoff=0.8)  # Match threshold 80%
-        if matches:
-            # Skip common terms like "courses" or "couse"
+        # Remove filler words
+        if word in filler_words:
             continue
-        processed_words.append(word)
+        # Correct misspellings using fuzzy matching
+        matches = difflib.get_close_matches(word, vocabulary, n=1, cutoff=0.8)  # Match threshold 80%
+        if matches:
+            processed_words.append(matches[0])
+        else:
+            processed_words.append(word)
 
     # Rejoin processed words into a clean query
     return " ".join(processed_words).strip()
+
+
+def build_vocabulary(records):
+    """
+    Dynamically build a vocabulary from course titles, descriptions, and other terms in the records.
+    """
+    vocabulary = set()
+    for record in records:
+        for field in record:  # Loop through all fields in the record
+            if isinstance(field, str):  # Ensure the field is a string
+                vocabulary.update(field.lower().split())  # Split and add words to the vocabulary
+    return list(vocabulary)
 
 
 @app.route('/search/', methods=['POST'])
@@ -131,8 +146,11 @@ async def search():
         if not query:
             return jsonify({"error": "Query is required"}), 400
 
+        # Build a dynamic vocabulary
+        vocabulary = build_vocabulary(records)
+
         # Preprocess the query
-        processed_query = preprocess_query(query)
+        processed_query = preprocess_query(query, vocabulary)
         logging.debug(f"Processed query: {processed_query}")
 
         # Vectorize the processed query
@@ -151,9 +169,7 @@ async def search():
         for idx, dist in zip(indices[0], D[0]):
             if 0 <= idx < len(records) and dist < threshold:
                 record = records[idx]
-                # Allow loosely matched results based on title and description relevance
-                if processed_query in record[0].lower() or processed_query in record[2].lower():
-                    relevant_courses.append(record)
+                relevant_courses.append(record)
 
         # Prepare JSON response
         json_results = []
@@ -180,12 +196,20 @@ async def search():
             }), 200
 
         # Format relevant courses into a summary for Ollama
-        course_list = "\n".join([f"- {course[0]}: {course[2]}" for course in relevant_courses[:3]])
-        prompt = (
-            f"The user is searching for courses related to '{query}'. Here are some relevant results:\n\n"
-            f"{course_list}\n\n"
-            f"Generate a concise, helpful response summarizing these courses in a conversational tone."
-        )
+        if len(relevant_courses) == 1:
+            course_list = f"- {relevant_courses[0][0]}: {relevant_courses[0][2]}"
+            prompt = (
+                f"The user is searching for courses related to '{query}'. Here's a relevant course:\n\n"
+                f"{course_list}\n\n"
+                f"Generate a concise, helpful response summarizing this course in a conversational tone."
+            )
+        else:
+            course_list = "\n".join([f"- {course[0]}: {course[2]}" for course in relevant_courses[:3]])
+            prompt = (
+                f"The user is searching for courses related to '{query}'. Here are some relevant results:\n\n"
+                f"{course_list}\n\n"
+                f"Generate a concise, helpful response summarizing these courses in a conversational tone."
+            )
 
         # Generate response using Ollama
         llm_response = ollama_llm(prompt)
@@ -199,6 +223,7 @@ async def search():
     except Exception as e:
         logging.error(f"Error in /search/: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":
