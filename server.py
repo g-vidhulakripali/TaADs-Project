@@ -8,6 +8,8 @@ from cachetools import cached, TTLCache
 from sentence_transformers import SentenceTransformer
 import faiss
 from langchain.llms import Ollama
+import re
+from sentence_transformers import util
 
 # Configuration
 logging.basicConfig(level=logging.DEBUG)
@@ -24,6 +26,10 @@ faiss_index_file = "data/faiss_index/faiss_index.idx"
 # Load SentenceTransformer model for vectorization
 logging.info("Loading SentenceTransformer model for vectorization...")
 vector_model = SentenceTransformer(llm_name)
+
+# Initialize the Ollama model using LangChain
+logging.info("Initializing Ollama for generative responses...")
+ollama_llm = Ollama(model="mistral")
 
 # Cache for vectorization
 vector_cache = TTLCache(maxsize=100, ttl=300)
@@ -82,13 +88,68 @@ def cached_vectorize_input(user_input):
     """Cache vectorization to speed up repeated queries."""
     return vector_model.encode([user_input])[0]
 
-# Initialize the Ollama Mistral model using LangChain
-ollama_llm = Ollama(model="mistral")
+@app.route('/search/', methods=['POST'])
+async def search():
+    """
+    Search for relevant courses by matching the query against weighted embeddings of title, learning_obj,
+    course_contents, and prerequisites.
+    """
+    try:
+        if not request.is_json:
+            return jsonify({'error': 'Invalid JSON input'}), 400
+
+        data_json = await request.get_json()
+        query = data_json.get("query", "").strip()
+
+        if not query:
+            return jsonify({"results": "Query is required"}), 400
+
+        # Vectorize the query
+        user_vector = cached_vectorize_input(query)
+
+        # Perform FAISS search
+        D, indices = index.search(np.array([user_vector]).astype('float32'), k=5)
+
+        # Debugging: Log distances and indices
+        logging.debug(f"FAISS distances: {D[0]}")
+        logging.debug(f"FAISS indices: {indices[0]}")
+
+        # Filter results with adjusted threshold
+        matching_results = []
+        for idx, dist in zip(indices[0], D[0]):
+            if 0 <= idx < len(records) and dist < 1.5:  # Relaxed threshold for flexibility
+                record = records[idx]
+                matching_results.append({
+                    "title": record[0],
+                    "instructor": record[1],
+                    "learning_obj": record[2],
+                    "course_contents": record[3],
+                    "prerequisites": record[4],
+                    "credits": record[5],
+                    "evaluation": record[6],
+                    "time": record[7],
+                    "frequency": record[8],
+                    "duration": record[9],
+                    "course_type": record[10]
+                })
+
+        # Limit to top 3 results
+        matching_results = matching_results[:3]
+
+        if not matching_results:
+            return jsonify({"results": "No relevant courses found."}), 200
+
+        return jsonify({"results": matching_results}), 200
+
+    except Exception as e:
+        logging.error(f"Error in /search/: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/suggest_course/', methods=['POST'])
 async def suggest_course():
     """
-    Suggest relevant courses or indicate no relevant results if none are sufficiently related.
+    Suggest relevant courses and provide a generative response for question-like queries using Ollama.
     """
     try:
         if not request.is_json:
@@ -100,49 +161,56 @@ async def suggest_course():
         if not query:
             return jsonify({"error": "Query is required"}), 400
 
-        # Ensure records exist
-        if not records:
-            return jsonify({"error": "No course records available for suggestions."}), 500
+        # Preprocess the query: Remove filler words and non-relevant terms
+        def preprocess_query(query):
+            query = re.sub(r"[^\w\s]", "", query)  # Remove punctuation
+            query = re.sub(r"\b(I|want|like|need|find|please|help|courses|on)\b", "", query, flags=re.IGNORECASE)
+            return query.strip().lower()
 
-        # Vectorize the query
-        user_vector = cached_vectorize_input(query)
+        processed_query = preprocess_query(query)
+        logging.debug(f"Processed query: {processed_query}")
 
-        # Perform FAISS search, limiting results to top 5
+        # Vectorize the processed query
+        user_vector = cached_vectorize_input(processed_query)
+
+        # Perform FAISS search
         D, indices = index.search(np.array([user_vector]).astype('float32'), k=5)
 
-        # Log distances and indices for debugging
-        logging.debug(f"FAISS search distances: {D}")
-        logging.debug(f"FAISS search indices: {indices}")
+        # Log debugging info
+        logging.debug(f"FAISS distances: {D[0]}")
+        logging.debug(f"FAISS indices: {indices[0]}")
 
-        # Filter relevant courses based on stricter threshold
-        threshold = 1.2  # Adjust threshold for stricter relevance
-        relevant_courses = [
-            records[idx] for idx, dist in zip(indices[0], D[0]) if 0 <= idx < len(records) and dist < threshold
-        ]
+        # Filter relevant courses with a relaxed threshold
+        threshold = 1.5
+        relevant_courses = []
+        for idx, dist in zip(indices[0], D[0]):
+            if 0 <= idx < len(records) and dist < threshold:
+                record = records[idx]
+                # Allow loosely matched results based on title and description relevance
+                if processed_query in record[0].lower() or processed_query in record[2].lower():
+                    relevant_courses.append(record)
 
-        # If no relevant courses, return a direct response
+        # If no relevant courses are found
         if not relevant_courses:
             return jsonify({
                 "response": "No relevant courses found for your query."
             }), 200
 
-        # Format top 3 courses into a summary for response
-        summarized_courses = relevant_courses[:3]
-        course_list = "\n".join([f"- {course[0]}: {course[2][:50]}..." for course in summarized_courses])
-
-        # Use Ollama to generate a natural response for relevant courses
+        # Format relevant courses into a summary for Ollama
+        course_list = "\n".join([f"- {course[0]}: {course[2]}" for course in relevant_courses[:3]])
         prompt = (
             f"The user is searching for courses related to '{query}'. Here are some relevant results:\n\n"
             f"{course_list}\n\n"
-            f"Generate a concise and helpful response summarizing these courses in a conversational tone."
+            f"Generate a concise, helpful response summarizing these courses in a conversational tone."
         )
+
+        # Generate response using Ollama
         llm_response = ollama_llm(prompt)
         return jsonify({"response": llm_response}), 200
 
     except Exception as e:
         logging.error(f"Error in /suggest_course/: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 
 if __name__ == "__main__":
