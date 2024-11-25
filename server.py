@@ -9,7 +9,6 @@ from sentence_transformers import SentenceTransformer
 import faiss
 from langchain.llms import Ollama
 import re
-from sentence_transformers import util
 
 # Configuration
 logging.basicConfig(level=logging.DEBUG)
@@ -88,68 +87,11 @@ def cached_vectorize_input(user_input):
     """Cache vectorization to speed up repeated queries."""
     return vector_model.encode([user_input])[0]
 
+
 @app.route('/search/', methods=['POST'])
 async def search():
     """
-    Search for relevant courses by matching the query against weighted embeddings of title, learning_obj,
-    course_contents, and prerequisites.
-    """
-    try:
-        if not request.is_json:
-            return jsonify({'error': 'Invalid JSON input'}), 400
-
-        data_json = await request.get_json()
-        query = data_json.get("query", "").strip()
-
-        if not query:
-            return jsonify({"results": "Query is required"}), 400
-
-        # Vectorize the query
-        user_vector = cached_vectorize_input(query)
-
-        # Perform FAISS search
-        D, indices = index.search(np.array([user_vector]).astype('float32'), k=5)
-
-        # Debugging: Log distances and indices
-        logging.debug(f"FAISS distances: {D[0]}")
-        logging.debug(f"FAISS indices: {indices[0]}")
-
-        # Filter results with adjusted threshold
-        matching_results = []
-        for idx, dist in zip(indices[0], D[0]):
-            if 0 <= idx < len(records) and dist < 1.5:  # Relaxed threshold for flexibility
-                record = records[idx]
-                matching_results.append({
-                    "title": record[0],
-                    "instructor": record[1],
-                    "learning_obj": record[2],
-                    "course_contents": record[3],
-                    "prerequisites": record[4],
-                    "credits": record[5],
-                    "evaluation": record[6],
-                    "time": record[7],
-                    "frequency": record[8],
-                    "duration": record[9],
-                    "course_type": record[10]
-                })
-
-        # Limit to top 3 results
-        matching_results = matching_results[:3]
-
-        if not matching_results:
-            return jsonify({"results": "No relevant courses found."}), 200
-
-        return jsonify({"results": matching_results}), 200
-
-    except Exception as e:
-        logging.error(f"Error in /search/: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/suggest_course/', methods=['POST'])
-async def suggest_course():
-    """
-    Suggest relevant courses and provide a generative response for question-like queries using Ollama.
+    Unified API to search for relevant courses and provide a conversational response using Ollama.
     """
     try:
         if not request.is_json:
@@ -190,9 +132,27 @@ async def suggest_course():
                 if processed_query in record[0].lower() or processed_query in record[2].lower():
                     relevant_courses.append(record)
 
+        # Prepare JSON response
+        json_results = []
+        for course in relevant_courses[:3]:
+            json_results.append({
+                "title": course[0],
+                "instructor": course[1],
+                "learning_obj": course[2],
+                "course_contents": course[3],
+                "prerequisites": course[4],
+                "credits": course[5],
+                "evaluation": course[6],
+                "time": course[7],
+                "frequency": course[8],
+                "duration": course[9],
+                "course_type": course[10]
+            })
+
         # If no relevant courses are found
         if not relevant_courses:
             return jsonify({
+                "results": [],
                 "response": "No relevant courses found for your query."
             }), 200
 
@@ -206,10 +166,15 @@ async def suggest_course():
 
         # Generate response using Ollama
         llm_response = ollama_llm(prompt)
-        return jsonify({"response": llm_response}), 200
+
+        # Return both JSON results and conversational response
+        return jsonify({
+            "results": json_results,
+            "response": llm_response
+        }), 200
 
     except Exception as e:
-        logging.error(f"Error in /suggest_course/: {e}")
+        logging.error(f"Error in /search/: {e}")
         return jsonify({"error": str(e)}), 500
 
 
