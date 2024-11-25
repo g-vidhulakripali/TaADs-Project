@@ -9,6 +9,7 @@ from sentence_transformers import SentenceTransformer
 import faiss
 from langchain.llms import Ollama
 import re
+import difflib
 
 # Configuration
 logging.basicConfig(level=logging.DEBUG)
@@ -38,6 +39,7 @@ logging.info("Loading records from the database...")
 records = get_learning_obj_en(db_file)
 if not records:
     raise Exception("No records found in the database.")
+
 
 # Function to combine course fields
 def combine_course_fields_with_weights(course):
@@ -81,11 +83,37 @@ index = load_faiss_index(faiss_index_file)
 if index is None or index.ntotal != len(records):
     raise Exception("FAISS index could not be loaded or does not match the number of records.")
 
+
 # Vectorization with caching
 @cached(vector_cache)
 def cached_vectorize_input(user_input):
     """Cache vectorization to speed up repeated queries."""
     return vector_model.encode([user_input])[0]
+
+
+def preprocess_query(query):
+    """
+    Preprocess the query by removing filler words, correcting common misspellings,
+    and focusing on core terms.
+    """
+    # Define common terms to remove
+    common_terms = ["i", "want", "like", "need", "find", "please", "help", "courses", "course", "on"]
+
+    # Remove punctuation
+    query = re.sub(r"[^\w\s]", "", query)
+
+    # Split query into words and process each word
+    processed_words = []
+    for word in query.lower().split():
+        # Correct misspellings using fuzzy matching
+        matches = difflib.get_close_matches(word, common_terms, n=1, cutoff=0.8)  # Match threshold 80%
+        if matches:
+            # Skip common terms like "courses" or "couse"
+            continue
+        processed_words.append(word)
+
+    # Rejoin processed words into a clean query
+    return " ".join(processed_words).strip()
 
 
 @app.route('/search/', methods=['POST'])
@@ -103,12 +131,7 @@ async def search():
         if not query:
             return jsonify({"error": "Query is required"}), 400
 
-        # Preprocess the query: Remove filler words and non-relevant terms
-        def preprocess_query(query):
-            query = re.sub(r"[^\w\s]", "", query)  # Remove punctuation
-            query = re.sub(r"\b(I|want|like|need|find|please|help|courses|on)\b", "", query, flags=re.IGNORECASE)
-            return query.strip().lower()
-
+        # Preprocess the query
         processed_query = preprocess_query(query)
         logging.debug(f"Processed query: {processed_query}")
 
