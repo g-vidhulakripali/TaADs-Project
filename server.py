@@ -28,7 +28,7 @@ logging.info("Loading SentenceTransformer model for vectorization...")
 vector_model = SentenceTransformer(llm_name)
 
 # Initialize the Ollama model using LangChain
-logging.info("Initializing Ollama for keyword extraction...")
+logging.info("Initializing Ollama for generative responses...")
 ollama_llm = Ollama(model="mistral")
 
 # Cache for vectorization
@@ -40,11 +40,12 @@ records = get_learning_obj_en(db_file)
 if not records:
     raise Exception("No records found in the database.")
 
-
-# Helper Functions
-
+# Function to combine course fields
 def combine_course_fields_with_weights(course):
-    title_weight = 3
+    """
+    Combine course fields into a single string with weights for better relevance.
+    """
+    title_weight = 2
     learning_obj_weight = 2
     course_contents_weight = 1
     prerequisites_weight = 1
@@ -56,57 +57,56 @@ def combine_course_fields_with_weights(course):
 
     return f"{title}{learning_obj}{course_contents}{prerequisites}"
 
-
 def store_weighted_embeddings(records, faiss_index_file):
+    """
+    Generate weighted embeddings for courses and store them in the FAISS index.
+    """
+    logging.info("Generating weighted embeddings for courses...")
     weighted_texts = [combine_course_fields_with_weights(record) for record in records]
     embeddings = vector_model.encode(weighted_texts)
 
+    # Create and save FAISS index
     dimension = embeddings.shape[1]
     index = faiss.IndexFlatL2(dimension)
     index.add(embeddings)
     faiss.write_index(index, faiss_index_file)
     logging.info("FAISS index with weighted embeddings stored successfully.")
 
-
+# Generate and store weighted embeddings
 store_weighted_embeddings(records, faiss_index_file)
 
+# Load FAISS index
 index = load_faiss_index(faiss_index_file)
 if index is None or index.ntotal != len(records):
     raise Exception("FAISS index could not be loaded or does not match the number of records.")
 
-
+# Vectorization with caching
 @cached(vector_cache)
 def cached_vectorize_input(user_input):
+    """Cache vectorization to speed up repeated queries."""
     return vector_model.encode([user_input])[0]
 
-
-def clean_keywords(raw_keywords):
+def preprocess_query(query, vocabulary):
     """
-    Clean and format keywords extracted from the LLM to make them usable for vector search.
+    Preprocess the query by removing filler words, correcting common misspellings,
+    and focusing on core terms.
     """
-    clean_keywords = []
-    for keyword in raw_keywords:
-        # Remove numbers, parentheses, and extra text
-        keyword = re.sub(r"\d+\.|\(.*?\)", "", keyword).strip()
-        if keyword:
-            clean_keywords.append(keyword)
-    return clean_keywords
+    query = re.sub(r"[^\w\s]", "", query)
 
+    processed_words = []
+    for word in query.lower().split():
+        matches = difflib.get_close_matches(word, vocabulary, n=1, cutoff=0.8)
+        if matches:
+            processed_words.append(matches[0])
+        else:
+            processed_words.append(word)
 
-def extract_keywords_with_model(query):
-    """
-    Use Ollama or MiniLM to extract and clean keywords from the query.
-    """
-    prompt = (
-        f"Extract only the key topics or keywords from the following query: '{query}'. "
-        "Return the keywords as a comma-separated list without explanations."
-    )
-    response = ollama_llm(prompt)
-    raw_keywords = response.split(",")
-    return clean_keywords([keyword.strip().lower() for keyword in raw_keywords])
-
+    return " ".join(processed_words).strip()
 
 def build_vocabulary(records):
+    """
+    Dynamically build a vocabulary from course titles, descriptions, and other terms in the records.
+    """
     vocabulary = set()
     for record in records:
         for field in record:
@@ -114,47 +114,11 @@ def build_vocabulary(records):
                 vocabulary.update(field.lower().split())
     return list(vocabulary)
 
-
-def aggregate_faiss_results(keywords, index, records, top_k=5, threshold=0.8):
-    """
-    Perform FAISS search for each keyword and aggregate results with a combined score.
-    """
-    results = {}
-    for keyword in keywords:
-        keyword_vector = cached_vectorize_input(keyword)
-        D, indices = index.search(np.array([keyword_vector]).astype('float32'), k=top_k)
-
-        for dist, idx in zip(D[0], indices[0]):
-            if 0 <= idx < len(records) and dist < threshold:
-                if idx not in results:
-                    results[idx] = {"score": 0, "record": records[idx]}
-                results[idx]["score"] += 1 / (1 + dist)  # Higher scores for closer distances
-
-    # Sort by combined score
-    sorted_results = sorted(results.values(), key=lambda x: x["score"], reverse=True)
-    return [res["record"] for res in sorted_results]
-
-
-def rank_courses(query, courses, user_vector, extracted_keywords):
-    ranked_courses = []
-    for course in courses:
-        course_vector = vector_model.encode([combine_course_fields_with_weights(course)])[0]
-        semantic_similarity = np.dot(user_vector, course_vector) / (
-                np.linalg.norm(user_vector) * np.linalg.norm(course_vector)
-        )
-
-        title_relevance = sum(1 for kw in extracted_keywords if kw in course[0].lower())
-        learning_obj_relevance = sum(1 for kw in extracted_keywords if kw in course[2].lower())
-
-        score = semantic_similarity + (2 * title_relevance) + (1.5 * learning_obj_relevance)
-        ranked_courses.append((score, course))
-
-    ranked_courses.sort(key=lambda x: x[0], reverse=True)
-    return [course for _, course in ranked_courses]
-
-
 @app.route('/search/', methods=['POST'])
 async def search():
+    """
+    Unified API to search for relevant courses and provide a conversational response using Ollama.
+    """
     try:
         if not request.is_json:
             return jsonify({"error": "Invalid JSON input"}), 400
@@ -165,59 +129,55 @@ async def search():
         if not query:
             return jsonify({"error": "Query is required"}), 400
 
-        # Extract keywords using the model
-        extracted_keywords = extract_keywords_with_model(query)
-        logging.debug(f"Extracted keywords: {extracted_keywords}")
+        # Build a dynamic vocabulary
+        vocabulary = build_vocabulary(records)
 
-        if not extracted_keywords:
-            return jsonify({"results": [], "response": "No relevant keywords found. Please refine your query."}), 200
+        # Preprocess the query
+        processed_query = preprocess_query(query, vocabulary)
+        logging.debug(f"Processed query: {processed_query}")
 
-        # Generate a weighted query for vector search
-        weighted_query = " ".join(extracted_keywords)
-        user_vector = cached_vectorize_input(weighted_query)
+        # Vectorize the processed query
+        user_vector = cached_vectorize_input(processed_query)
 
-        # Aggregate FAISS results using keywords
-        relevant_records = aggregate_faiss_results(extracted_keywords, index, records)
+        # Perform FAISS search
+        D, indices = index.search(np.array([user_vector]).astype('float32'), k=1)
 
-        if not relevant_records:
-            return jsonify({"results": [], "response": "No relevant courses found."}), 200
+        logging.debug(f"FAISS distances: {D[0]}")
+        logging.debug(f"FAISS indices: {indices[0]}")
 
-        # Rank courses (if multiple records are aggregated)
-        ranked_courses = rank_courses(weighted_query, relevant_records, user_vector, extracted_keywords)
+        # Get the top result
+        top_idx = indices[0][0]
+        top_distance = D[0][0]
+        threshold = 1.5
 
-        if not ranked_courses:
-            return jsonify({"results": [], "response": "No relevant courses found."}), 200
+        if 0 <= top_idx < len(records) and top_distance < threshold:
+            course = records[top_idx]
+            response = ollama_llm(f"The user is interested in the topic: '{query}'. Suggesting this course:\n\n- {course[0]}: {course[2]}\n\nPlease summarize this course in a helpful and conversational tone.")
+            return jsonify({
+                "result": {
+                    "title": course[0],
+                    "instructor": course[1],
+                    "learning_obj": course[2],
+                    "course_contents": course[3],
+                    "prerequisites": course[4],
+                    "credits": course[5],
+                    "evaluation": course[6],
+                    "time": course[7],
+                    "frequency": course[8],
+                    "duration": course[9],
+                    "course_type": course[10]
+                },
+                "response": response
+            }), 200
 
-        # Return the most relevant course
-        course = ranked_courses[0]
-        json_result = {
-            "title": course[0],
-            "instructor": course[1],
-            "learning_obj": course[2],
-            "course_contents": course[3],
-            "prerequisites": course[4],
-            "credits": course[5],
-            "evaluation": course[6],
-            "time": course[7],
-            "frequency": course[8],
-            "duration": course[9],
-            "course_type": course[10]
-        }
-        
-        prompt = (
-            f"The user is searching for courses related to '{query}'. Here's the most relevant course:\n\n"
-            f"- {course[0]}: {course[2]}\n\n"
-            f"Generate a concise, helpful response summarizing this course in a conversational tone."
-        )
-
-        llm_response = ollama_llm(prompt)
-
-        return jsonify({"result": json_result, "response": llm_response}), 200
+        return jsonify({
+            "result": {},
+            "response": "No relevant courses found for your query. Please refine your query or try a different topic."
+        }), 200
 
     except Exception as e:
         logging.error(f"Error in /search/: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=False, port=3000)
