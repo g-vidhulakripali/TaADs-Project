@@ -152,7 +152,7 @@ async def search():
 
         if 0 <= top_idx < len(records) and top_distance < threshold:
             course = records[top_idx]
-            response = ollama_llm(f"Here's something you might find interesting about '{query}':\n\n{course[0]}\n\n{course[2]}\n\nCan you summarize this in a conversational tone without starting with the title?")
+            response = ollama_llm(f"If you're interested in '{query}', you might enjoy the course '{course[0]}'.\n\nHere's a quick summary: {course[2]}\n\nPlease summarize this course in a conversational and engaging manner.")
             return jsonify({
                 "result": {
                     "title": course[0],
