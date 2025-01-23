@@ -1,16 +1,15 @@
 import pandas as pd
 import sqlite3
 
-def merge_and_load_to_new_sqlite(old_sqlite_file, csv_file, new_sqlite_file, table_name, column_mapping):
+def merge_and_load_to_new_sqlite(old_sqlite_file, csv_file, new_sqlite_file, table_name):
     """
-    Merges data from an existing SQLite database and a CSV file into a new SQLite database.
+    Adds data from a CSV file to an SQLite database by mapping specific CSV columns to SQLite columns.
 
     Args:
         old_sqlite_file (str): Path to the existing SQLite database file.
         csv_file (str): Path of the CSV file to process.
         new_sqlite_file (str): Path to the new SQLite database file.
-        table_name (str): Name of the table in the SQLite database.
-        column_mapping (dict): Hardcoded mapping of CSV headers to SQLite table columns.
+        table_name (str): Name of the table in the new SQLite database.
     """
     try:
         # Connect to the old SQLite database
@@ -27,24 +26,42 @@ def merge_and_load_to_new_sqlite(old_sqlite_file, csv_file, new_sqlite_file, tab
         # Load CSV data into a DataFrame
         csv_data = pd.read_csv(csv_file)
 
-        # Ensure each CSV header maps to an existing database column without creating new columns
-        valid_columns = {csv_col: db_col for csv_col, db_col in column_mapping.items() if db_col in old_data.columns}
+        # Define the mapping from CSV columns to SQLite columns
+        column_mapping = {
+            "Name": "title",
+            "Description": "course_contents",
+            "Credit Hours": "credits",
+            "Section Info": "prerequisites",
+            "Type": "teaching-methods",
+            "Instructors": "instructor"
+        }
 
-        # Combine data from CSV into existing database columns
-        for csv_col, db_col in valid_columns.items():
-            if db_col in old_data.columns:
-                # Append values from the CSV column to the existing database column
-                old_data[db_col] = old_data[db_col].astype(str) + ' ' + csv_data[csv_col].astype(str).fillna('')
+        # Create a DataFrame to collect new rows with all mapped columns
+        new_rows = pd.DataFrame(columns=old_data.columns)
 
-        # Drop duplicates
-        merged_data = old_data.drop_duplicates()
+        for _, csv_row in csv_data.iterrows():
+            temp_row = {}
+            for csv_col, sqlite_col in column_mapping.items():
+                if csv_col in csv_data.columns and sqlite_col in old_data.columns:
+                    temp_row[sqlite_col] = csv_row[csv_col] if not pd.isna(csv_row[csv_col]) else None
+
+            # Ensure all other columns are set to None for consistency
+            for col in old_data.columns:
+                if col not in temp_row:
+                    temp_row[col] = None
+
+            # Append the row to new_rows
+            new_rows = pd.concat([new_rows, pd.DataFrame([temp_row])], ignore_index=True)
+
+        # Combine old data and new rows
+        combined_data = pd.concat([old_data, new_rows], ignore_index=True).drop_duplicates()
 
         # Connect to the new SQLite database
         new_conn = sqlite3.connect(new_sqlite_file)
 
-        # Write merged data to the new database
-        merged_data.to_sql(table_name, new_conn, if_exists='replace', index=False)
-        print(f"Merged data loaded into new database table '{table_name}' successfully.")
+        # Write combined data to the new database
+        combined_data.to_sql(table_name, new_conn, if_exists='replace', index=False)
+        print(f"Data from CSV mapped to respective columns and loaded into new SQLite file '{new_sqlite_file}' successfully.")
 
         # Close the new database connection
         new_conn.close()
@@ -58,36 +75,5 @@ csv_file = "../data/courses/course-catalog.csv"
 new_sqlite_file = "../data/db/new_courses.sqlite"
 table_name = "zqm_module_en"
 
-# Define hardcoded column mapping
-column_mapping = {
-    "Year": "remarks",
-    "Term": "remarks",
-    "YearTerm": "remarks",
-    "Subject": "course_type",
-    "Number": "credits",
-    "Name": "title",
-    "Description": "description",
-    "Credit Hours": "credits",
-    "Section Info": "course_contents",
-    "Degree Attributes": "applicability",
-    "Schedule Information": "schedule_info",
-    "CRN": "file_loc",
-    "Section": "title",
-    "Status Code": "remarks",
-    "Part of Term": "remarks",
-    "Section Title": "title",
-    "Section Credit Hours": "credits",
-    "Section Status": "remarks",
-    "Enrollment Status": "remarks",
-    "Type": "course_type",
-    "Type Code": "remarks",
-    "Start Time": "time",
-    "End Time": "time",
-    "Days of Week": "schedule_info",
-    "Room": "remarks",
-    "Building": "remarks",
-    "Instructors": "instructor"
-}
-
 # Run the function
-merge_and_load_to_new_sqlite(old_sqlite_file, csv_file, new_sqlite_file, table_name, column_mapping)
+merge_and_load_to_new_sqlite(old_sqlite_file, csv_file, new_sqlite_file, table_name)
