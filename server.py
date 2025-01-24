@@ -10,6 +10,7 @@ import faiss
 from langchain.llms import Ollama
 import re
 import difflib
+import json
 
 # Configuration
 logging.basicConfig(level=logging.DEBUG)
@@ -19,7 +20,7 @@ config.read('config.env')
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
 
-llm_name = config['DEFAULT'].get('LLM_NAME', 'paraphrase-MiniLM-L6-v2')  # Default model for vectorization
+llm_name = config['DEFAULT'].get('LLM_NAME', 'all-mpnet-base-v2')  # Updated model for better embeddings
 db_file = "data/db/courses.sqlite"
 faiss_index_file = "data/faiss_index/faiss_index.idx"
 
@@ -104,6 +105,18 @@ def preprocess_query(query, vocabulary):
 
     return " ".join(processed_words).strip()
 
+def extract_keywords_with_llm(query):
+    """
+    Use the LLM to extract keywords or refine the intent of the query.
+    """
+    try:
+        refined_query = ollama_llm(f"Extract the main keywords or intent from the following query: '{query}'")
+        logging.debug(f"Refined query from LLM: {refined_query}")
+        return refined_query.strip()
+    except Exception as e:
+        logging.error(f"Error extracting keywords with LLM: {e}")
+        return query  # Fallback to original query
+
 def build_vocabulary(records):
     """
     Dynamically build a vocabulary from course titles, descriptions, and other terms in the records.
@@ -133,44 +146,56 @@ async def search():
         # Build a dynamic vocabulary
         vocabulary = build_vocabulary(records)
 
+        # Extract main keywords or refine the query
+        refined_query = extract_keywords_with_llm(query)
+
         # Preprocess the query
-        processed_query = preprocess_query(query, vocabulary)
+        processed_query = preprocess_query(refined_query, vocabulary)
         logging.debug(f"Processed query: {processed_query}")
 
         # Vectorize the processed query
         user_vector = cached_vectorize_input(processed_query)
 
         # Perform FAISS search
-        D, indices = index.search(np.array([user_vector]).astype('float32'), k=1)
+        D, indices = index.search(np.array([user_vector]).astype('float32'), k=5)  # Retrieve top 5 for validation
 
         logging.debug(f"FAISS distances: {D[0]}")
         logging.debug(f"FAISS indices: {indices[0]}")
 
-        # Get the top result
-        top_idx = indices[0][0]
-        top_distance = D[0][0]
-        threshold = 1.5
+        # Filter results by distance threshold
+        threshold = 1.2  # Adjust threshold for broader matches
+        valid_results = [
+            (records[idx], D[0][i])
+            for i, idx in enumerate(indices[0])
+            if D[0][i] < threshold
+        ]
 
-        if 0 <= top_idx < len(records) and top_distance < threshold:
-            course = records[top_idx]
-            response = ollama_llm(f"If you're interested in '{query}', you might enjoy the course '{course[0]}'.\n\nHere's a quick summary: {course[2]}\n\nPlease summarize this course in a conversational and engaging manner.")
+        if valid_results:
+            # Select the most relevant result
+            top_result, top_distance = valid_results[0]
+
+            response = ollama_llm(
+                f"If you're interested in '{query}', you might enjoy the course '{top_result[0]}'.\n\n"
+                f"Here's a quick summary: {top_result[2]}\n\nPlease summarize this course in a conversational and engaging manner."
+            )
             return jsonify({
                 "result": {
-                    "title": course[0],
-                    "instructor": course[1],
-                    "learning_obj": course[2],
-                    "course_contents": course[3],
-                    "prerequisites": course[4],
-                    "credits": course[5],
-                    "evaluation": course[6],
-                    "time": course[7],
-                    "frequency": course[8],
-                    "duration": course[9],
-                    "course_type": course[10]
+                    "title": top_result[0],
+                    "instructor": top_result[1],
+                    "learning_obj": top_result[2],
+                    "course_contents": top_result[3],
+                    "prerequisites": top_result[4],
+                    "credits": top_result[5],
+                    "evaluation": top_result[6],
+                    "time": top_result[7],
+                    "frequency": top_result[8],
+                    "duration": top_result[9],
+                    "course_type": top_result[10]
                 },
                 "response": response
             }), 200
 
+        # No relevant course found
         return jsonify({
             "result": {},
             "response": "No relevant courses found for your query. Please refine your query or try a different topic."
