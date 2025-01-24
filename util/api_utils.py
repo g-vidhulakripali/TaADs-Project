@@ -5,7 +5,7 @@ from sentence_transformers import SentenceTransformer
 from cachetools import cached, TTLCache
 import pickle
 import numpy as np
-from model_trainer.trainer import train_learning_obj_en
+from trainer import train_learning_obj_en
 
 cache = TTLCache(maxsize=100, ttl=300)
 location_db = "data/db/courses.sqlite"
