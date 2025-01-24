@@ -3,7 +3,7 @@ import configparser
 import numpy as np
 from quart_cors import cors
 from quart import Quart, request, jsonify
-from util.api_utils import get_learning_obj_en, load_faiss_index, store_in_faiss
+from api_utils import get_learning_obj_en, load_faiss_index, store_in_faiss
 from cachetools import cached, TTLCache
 from sentence_transformers import SentenceTransformer
 import faiss
@@ -50,10 +50,11 @@ def combine_course_fields_with_weights(course):
     course_contents_weight = 1
     prerequisites_weight = 1
 
-    title = (course[0] + " ") * title_weight
-    learning_obj = (course[2] + " ") * learning_obj_weight
-    course_contents = (course[3] + " ") * course_contents_weight
-    prerequisites = (course[4] + " ") * prerequisites_weight
+    # Replace None with empty strings to prevent concatenation errors
+    title = (str(course[0] or "") + " ") * title_weight
+    learning_obj = (str(course[2] or "") + " ") * learning_obj_weight
+    course_contents = (str(course[3] or "") + " ") * course_contents_weight
+    prerequisites = (str(course[4] or "") + " ") * prerequisites_weight
 
     return f"{title}{learning_obj}{course_contents}{prerequisites}"
 
