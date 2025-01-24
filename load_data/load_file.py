@@ -28,12 +28,8 @@ def merge_and_load_to_new_sqlite(old_sqlite_file, csv_file, new_sqlite_file, tab
 
         # Define the mapping from CSV columns to SQLite columns
         column_mapping = {
-            "Name": "title",
-            "Description": "course_contents",
-            "Credit Hours": "credits",
-            "Section Info": "prerequisites",
-            "Type": "teaching-methods",
-            "Instructors": "instructor"
+            "CourseTitle": "title",
+            "Description": "course_contents"
         }
 
         # Create a DataFrame to collect new rows with all mapped columns
@@ -71,7 +67,8 @@ def merge_and_load_to_new_sqlite(old_sqlite_file, csv_file, new_sqlite_file, tab
 
 # Define file paths
 old_sqlite_file = "../data/db/courses.sqlite"
-csv_file = "../data/courses/course-catalog.csv"
+# csv_file = "../data/courses/course-catalog.csv"
+csv_file = "../data/courses/CoursesData.csv"
 new_sqlite_file = "../data/db/new_courses.sqlite"
 table_name = "zqm_module_en"
 
