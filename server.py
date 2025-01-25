@@ -163,12 +163,17 @@ async def search():
         logging.debug(f"FAISS indices: {indices[0]}")
 
         # Filter results by distance threshold
-        threshold = 1.2  # Adjust threshold for broader matches
-        valid_results = [
-            (records[idx], D[0][i])
-            for i, idx in enumerate(indices[0])
-            if D[0][i] < threshold
-        ]
+        threshold = 1.0  # Stricter threshold for semantic matches
+        valid_results = []
+        query_keywords = set(processed_query.split())
+
+        for i, idx in enumerate(indices[0]):
+            if D[0][i] < threshold:
+                course = records[idx]
+                combined_text = combine_course_fields_with_weights(course).lower()
+                # Check if at least one query keyword is in the course content
+                if any(keyword in combined_text for keyword in query_keywords):
+                    valid_results.append((course, D[0][i]))
 
         if valid_results:
             # Select the most relevant result
