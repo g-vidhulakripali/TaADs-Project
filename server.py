@@ -179,8 +179,12 @@ async def search():
             # Select the most relevant result
             top_result, top_distance = valid_results[0]
 
+            # Determine platform and include in response
+            platform_info = "an online course" if top_result[11] == "O" else "taught in a university"
+
             response = ollama_llm(
                 f"If you're interested in '{query}', you might enjoy the course '{top_result[0]}'.\n\n"
+                f"This course is {platform_info}.\n\n"
                 f"Here's a quick summary: {top_result[2]}\n\nPlease summarize this course in a conversational and engaging manner."
             )
             return jsonify({
@@ -195,7 +199,9 @@ async def search():
                     "time": top_result[7],
                     "frequency": top_result[8],
                     "duration": top_result[9],
-                    "course_type": top_result[10]
+                    "course_type": top_result[10],
+                    "platform-response": platform_info,
+                    "platform":top_result[11]
                 },
                 "response": response
             }), 200

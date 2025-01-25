@@ -59,7 +59,7 @@ def get_learning_obj_en(db_file):
     try:
         conn = sqlite3.connect(db_file)
         cursor = conn.cursor()
-        statement = 'SELECT title, instructor, learning_obj, course_contents, prerequisites, credits, evaluation, time, frequency, duration, course_type FROM zqm_module_en'
+        statement = 'SELECT title, instructor, learning_obj, course_contents, prerequisites, credits, evaluation, time, frequency, duration, course_type, platform FROM zqm_module_en'
         cursor.execute(statement)
         records = cursor.fetchall()
         conn.close()
