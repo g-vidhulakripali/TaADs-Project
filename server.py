@@ -103,7 +103,7 @@ def preprocess_query(query, vocabulary):
 
 def query_huggingface(prompt):
     """
-    Query the Hugging Face Inference API.
+    Query the Hugging Face Inference API with better error handling and response parsing.
     """
     headers = {"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}
     payload = {"inputs": prompt}
@@ -111,9 +111,14 @@ def query_huggingface(prompt):
     try:
         response = requests.post(HUGGINGFACE_API_URL, headers=headers, json=payload)
         response.raise_for_status()
-        # The output is typically in the format [{"generated_text": "..."}]
         result = response.json()
-        return result[0]["generated_text"]
+
+        # Extract the generated text properly
+        if isinstance(result, list) and "generated_text" in result[0]:
+            return result[0]["generated_text"].strip()
+        else:
+            logging.error(f"Unexpected response format: {result}")
+            return "The model response could not be processed."
     except requests.RequestException as e:
         logging.error(f"Error querying Hugging Face API: {e}")
         return "The model service is currently unavailable. Please try again later."
@@ -155,7 +160,7 @@ async def search():
         user_vector = cached_vectorize_input(processed_query)
 
         # Perform FAISS search
-        D, indices = index.search(np.array([user_vector]).astype('float32'), k=5)  # Retrieve top 5 for validation
+        D, indices = index.search(np.array([user_vector]).astype('float32'), k=5)
 
         logging.debug(f"FAISS distances: {D[0]}")
         logging.debug(f"FAISS indices: {indices[0]}")
@@ -174,13 +179,17 @@ async def search():
 
         if valid_results:
             top_result, top_distance = valid_results[0]
-            platform_info = "an online course" if top_result[11] == "O" else "taught in a university"
 
-            # Query Hugging Face for a conversational response
+            # Prepare a natural prompt for response generation
+            platform_info = "available online" if top_result[11] == "O" else "offered at a university"
+
+            course_details = f"The course '{top_result[0]}' is {platform_info}."
+            if top_result[2]:
+                course_details += f" It focuses on: {top_result[2]}"
+
             response = query_huggingface(
-                f"If you're interested in '{query}', you might enjoy the course '{top_result[0]}'.\n\n"
-                f"This course is {platform_info}.\n\n"
-                f"Here's a quick summary: {top_result[2]}\n\nPlease summarize this course in a conversational and engaging manner."
+                f"Here is some information about a course that might interest you: {course_details}. "
+                "Can you provide a friendly and engaging summary to help someone decide if it's suitable for them?"
             )
 
             return jsonify({
@@ -202,8 +211,8 @@ async def search():
             }), 200
 
         response = query_huggingface(
-            f"No relevant courses were found for the query '{query}'.\n\n"
-            "Please summarize why no relevant courses were found and suggest refining the search criteria."
+            f"No relevant courses were found for the query '{query}'. "
+            "Could you suggest ways to refine the search or provide alternative recommendations?"
         )
         return jsonify({
             "result": {},
