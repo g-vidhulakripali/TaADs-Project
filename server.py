@@ -200,7 +200,8 @@ async def search():
                     "frequency": top_result[8],
                     "duration": top_result[9],
                     "course_type": top_result[10],
-                    "platform": platform_info
+                    "platform": top_result[11],
+                    "platform_info": platform_info
                 },
                 "response": response
             }), 200
