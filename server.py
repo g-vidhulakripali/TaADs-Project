@@ -163,7 +163,7 @@ async def search():
         logging.debug(f"FAISS indices: {indices[0]}")
 
         # Filter results by distance threshold
-        threshold = 1.1  # Stricter threshold for semantic matches
+        threshold = 1.0  # Stricter threshold for semantic matches
         valid_results = []
         query_keywords = set(processed_query.split())
 
