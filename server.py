@@ -163,7 +163,7 @@ async def search():
         logging.debug(f"FAISS indices: {indices[0]}")
 
         # Filter results by distance threshold
-        threshold = 1.0  # Stricter threshold for semantic matches
+        threshold = 1.1  # Stricter threshold for semantic matches
         valid_results = []
         query_keywords = set(processed_query.split())
 
@@ -200,16 +200,19 @@ async def search():
                     "frequency": top_result[8],
                     "duration": top_result[9],
                     "course_type": top_result[10],
-                    "platform-response": platform_info,
-                    "platform":top_result[11]
+                    "platform": platform_info
                 },
                 "response": response
             }), 200
 
         # No relevant course found
+        response = ollama_llm(
+            f"No relevant courses were found for the query '{query}'.\n\n"
+            "Please summarize why no relevant courses were found and suggest refining the search criteria."
+        )
         return jsonify({
             "result": {},
-            "response": "No relevant courses found for your query. Please refine your query or try a different topic."
+            "response": response
         }), 200
 
     except Exception as e:
