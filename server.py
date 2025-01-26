@@ -7,37 +7,37 @@ from api_utils import get_learning_obj_en, load_faiss_index, store_in_faiss
 from cachetools import cached, TTLCache
 from sentence_transformers import SentenceTransformer
 import faiss
-from langchain.llms import Ollama
+import requests
 import re
 import difflib
-import json
+import os
+from dotenv import load_dotenv
 
 # Configuration
 logging.basicConfig(level=logging.DEBUG)
 config = configparser.ConfigParser()
 config.read('config.env')
 
+# Load environment variables from config.env
+load_dotenv("config.env")
+HUGGINGFACE_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
+
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
 
-llm_name = config['DEFAULT'].get('LLM_NAME', 'all-mpnet-base-v2')  # Updated model for better embeddings
-db_file = "data/db/courses.sqlite"
-faiss_index_file = "data/faiss_index/faiss_index.idx"
+llm_name = config['DEFAULT'].get('LLM_NAME', 'all-mpnet-base-v2')
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
 
 # Load SentenceTransformer model for vectorization
 logging.info("Loading SentenceTransformer model for vectorization...")
 vector_model = SentenceTransformer(llm_name)
-
-# Initialize the Ollama model using LangChain
-logging.info("Initializing Ollama for generative responses...")
-ollama_llm = Ollama(model="mistral")
 
 # Cache for vectorization
 vector_cache = TTLCache(maxsize=100, ttl=300)
 
 # Load records from the database
 logging.info("Loading records from the database...")
-records = get_learning_obj_en(db_file)
+records = get_learning_obj_en("data/db/courses.sqlite")
 if not records:
     raise Exception("No records found in the database.")
 
@@ -51,7 +51,6 @@ def combine_course_fields_with_weights(course):
     course_contents_weight = 1
     prerequisites_weight = 1
 
-    # Replace None with empty strings to prevent concatenation errors
     title = (str(course[0] or "") + " ") * title_weight
     learning_obj = (str(course[2] or "") + " ") * learning_obj_weight
     course_contents = (str(course[3] or "") + " ") * course_contents_weight
@@ -67,7 +66,6 @@ def store_weighted_embeddings(records, faiss_index_file):
     weighted_texts = [combine_course_fields_with_weights(record) for record in records]
     embeddings = vector_model.encode(weighted_texts)
 
-    # Create and save FAISS index
     dimension = embeddings.shape[1]
     index = faiss.IndexFlatL2(dimension)
     index.add(embeddings)
@@ -75,10 +73,10 @@ def store_weighted_embeddings(records, faiss_index_file):
     logging.info("FAISS index with weighted embeddings stored successfully.")
 
 # Generate and store weighted embeddings
-store_weighted_embeddings(records, faiss_index_file)
+store_weighted_embeddings(records, "data/faiss_index/faiss_index.idx")
 
 # Load FAISS index
-index = load_faiss_index(faiss_index_file)
+index = load_faiss_index("data/faiss_index/faiss_index.idx")
 if index is None or index.ntotal != len(records):
     raise Exception("FAISS index could not be loaded or does not match the number of records.")
 
@@ -94,7 +92,6 @@ def preprocess_query(query, vocabulary):
     and focusing on core terms.
     """
     query = re.sub(r"[^\w\s]", "", query)
-
     processed_words = []
     for word in query.lower().split():
         matches = difflib.get_close_matches(word, vocabulary, n=1, cutoff=0.8)
@@ -102,20 +99,24 @@ def preprocess_query(query, vocabulary):
             processed_words.append(matches[0])
         else:
             processed_words.append(word)
-
     return " ".join(processed_words).strip()
 
-def extract_keywords_with_llm(query):
+def query_huggingface(prompt):
     """
-    Use the LLM to extract keywords or refine the intent of the query.
+    Query the Hugging Face Inference API.
     """
+    headers = {"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}
+    payload = {"inputs": prompt}
+
     try:
-        refined_query = ollama_llm(f"Extract the main keywords or intent from the following query: '{query}'")
-        logging.debug(f"Refined query from LLM: {refined_query}")
-        return refined_query.strip()
-    except Exception as e:
-        logging.error(f"Error extracting keywords with LLM: {e}")
-        return query  # Fallback to original query
+        response = requests.post(HUGGINGFACE_API_URL, headers=headers, json=payload)
+        response.raise_for_status()
+        # The output is typically in the format [{"generated_text": "..."}]
+        result = response.json()
+        return result[0]["generated_text"]
+    except requests.RequestException as e:
+        logging.error(f"Error querying Hugging Face API: {e}")
+        return "The model service is currently unavailable. Please try again later."
 
 def build_vocabulary(records):
     """
@@ -131,7 +132,7 @@ def build_vocabulary(records):
 @app.route('/search/', methods=['POST'])
 async def search():
     """
-    Unified API to search for relevant courses and provide a conversational response using Ollama.
+    Unified API to search for relevant courses and provide a conversational response using the LLM.
     """
     try:
         if not request.is_json:
@@ -146,11 +147,8 @@ async def search():
         # Build a dynamic vocabulary
         vocabulary = build_vocabulary(records)
 
-        # Extract main keywords or refine the query
-        refined_query = extract_keywords_with_llm(query)
-
         # Preprocess the query
-        processed_query = preprocess_query(refined_query, vocabulary)
+        processed_query = preprocess_query(query, vocabulary)
         logging.debug(f"Processed query: {processed_query}")
 
         # Vectorize the processed query
@@ -163,7 +161,7 @@ async def search():
         logging.debug(f"FAISS indices: {indices[0]}")
 
         # Filter results by distance threshold
-        threshold = 1.1  # Stricter threshold for semantic matches
+        threshold = 1.1
         valid_results = []
         query_keywords = set(processed_query.split())
 
@@ -171,22 +169,20 @@ async def search():
             if D[0][i] < threshold:
                 course = records[idx]
                 combined_text = combine_course_fields_with_weights(course).lower()
-                # Check if at least one query keyword is in the course content
                 if any(keyword in combined_text for keyword in query_keywords):
                     valid_results.append((course, D[0][i]))
 
         if valid_results:
-            # Select the most relevant result
             top_result, top_distance = valid_results[0]
-
-            # Determine platform and include in response
             platform_info = "an online course" if top_result[11] == "O" else "taught in a university"
 
-            response = ollama_llm(
+            # Query Hugging Face for a conversational response
+            response = query_huggingface(
                 f"If you're interested in '{query}', you might enjoy the course '{top_result[0]}'.\n\n"
                 f"This course is {platform_info}.\n\n"
                 f"Here's a quick summary: {top_result[2]}\n\nPlease summarize this course in a conversational and engaging manner."
             )
+
             return jsonify({
                 "result": {
                     "title": top_result[0],
@@ -205,8 +201,7 @@ async def search():
                 "response": response
             }), 200
 
-        # No relevant course found
-        response = ollama_llm(
+        response = query_huggingface(
             f"No relevant courses were found for the query '{query}'.\n\n"
             "Please summarize why no relevant courses were found and suggest refining the search criteria."
         )
@@ -220,4 +215,4 @@ async def search():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=False, port=3000)
+    app.run(host="0.0.0.0", port=3000)
