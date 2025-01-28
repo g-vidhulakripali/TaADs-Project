@@ -1,0 +1,15 @@
+docx
+docx2python
+Levenshtein
+pandas
+numpy
+python-dotenv
+sentence-transformers
+torch
+torchvision
+quart-cors
+quart
+transformers
+sentencepiece
+faiss-cpu
+cachetools
