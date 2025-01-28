@@ -1,198 +1,130 @@
 import logging
-import configparser
+import os
 import numpy as np
 from quart_cors import cors
 from quart import Quart, request, jsonify
 from src.db.db_utils import get_learning_obj_en
-from src.api.api_utils import load_faiss_index,store_in_faiss
-from cachetools import cached, TTLCache
+from src.embeddings.embeddings_handler import store_embeddings_and_faiss, load_faiss_index
+from src.preprocessing.query_preprocessor import preprocess_query, build_vocabulary, extract_keywords_with_llm, cached_vectorize_input
 from sentence_transformers import SentenceTransformer
-import faiss
-import requests
-import re
-import difflib
-import os
-from dotenv import load_dotenv
+from langchain_community.llms import Ollama
 
 # Configuration
-logging.basicConfig(level=logging.DEBUG)
-config = configparser.ConfigParser()
-config.read('config/config.env')
-
-# Load environment variables from config.env
-load_dotenv("config/config.env")
-HUGGINGFACE_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler()]
+)
 
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
 
-llm_name = config['DEFAULT'].get('LLM_NAME', 'all-mpnet-base-v2')
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
+llm_name = 'all-mpnet-base-v2'
+db_file = "../../data/db/courses.sqlite"
+faiss_index_file = "../../data/faiss_index/faiss_index.idx"
+pkl_file = "../../data/models/all-MiniLM-L6-v2_embeddings_en.pkl"
 
 # Load SentenceTransformer model for vectorization
 logging.info("Loading SentenceTransformer model for vectorization...")
 vector_model = SentenceTransformer(llm_name)
 
-# Cache for vectorization
-vector_cache = TTLCache(maxsize=100, ttl=300)
+# Initialize the Ollama model using LangChain
+logging.info("Initializing Ollama for generative responses...")
+ollama_llm = Ollama(model="mistral")
 
 # Load records from the database
 logging.info("Loading records from the database...")
-records = get_learning_obj_en("../../data/db/courses.sqlite")
+records = get_learning_obj_en(db_file)
 if not records:
+    logging.error("No records found in the database.")
     raise Exception("No records found in the database.")
+else:
+    logging.info(f"Successfully loaded {len(records)} records from the database.")
 
-# Function to combine course fields
-def combine_course_fields_with_weights(course):
-    """
-    Combine course fields into a single string with weights for better relevance.
-    """
-    title_weight = 2
-    learning_obj_weight = 2
-    course_contents_weight = 1
-    prerequisites_weight = 1
-
-    title = (str(course[0] or "") + " ") * title_weight
-    learning_obj = (str(course[2] or "") + " ") * learning_obj_weight
-    course_contents = (str(course[3] or "") + " ") * course_contents_weight
-    prerequisites = (str(course[4] or "") + " ") * prerequisites_weight
-
-    return f"{title}{learning_obj}{course_contents}{prerequisites}"
-
-def store_weighted_embeddings(records, faiss_index_file):
-    """
-    Generate weighted embeddings for courses and store them in the FAISS index.
-    """
-    logging.info("Generating weighted embeddings for courses...")
-    weighted_texts = [combine_course_fields_with_weights(record) for record in records]
-    embeddings = vector_model.encode(weighted_texts)
-
-    dimension = embeddings.shape[1]
-    index = faiss.IndexFlatL2(dimension)
-    index.add(embeddings)
-    faiss.write_index(index, faiss_index_file)
-    logging.info("FAISS index with weighted embeddings stored successfully.")
-
-# Generate and store weighted embeddings
-store_weighted_embeddings(records, "../../data/faiss_index/faiss_index.idx")
-
-# Load FAISS index
-index = load_faiss_index("../../data/faiss_index/faiss_index.idx")
-if index is None or index.ntotal != len(records):
-    raise Exception("FAISS index could not be loaded or does not match the number of records.")
-
-# Vectorization with caching
-@cached(vector_cache)
-def cached_vectorize_input(user_input):
-    """Cache vectorization to speed up repeated queries."""
-    return vector_model.encode([user_input])[0]
-
-def preprocess_query(query, vocabulary):
-    """
-    Preprocess the query by removing filler words, correcting common misspellings,
-    and focusing on core terms.
-    """
-    query = re.sub(r"[^\w\s]", "", query)
-    processed_words = []
-    for word in query.lower().split():
-        matches = difflib.get_close_matches(word, vocabulary, n=1, cutoff=0.8)
-        if matches:
-            processed_words.append(matches[0])
-        else:
-            processed_words.append(word)
-    return " ".join(processed_words).strip()
-
-def query_huggingface(prompt):
-    """
-    Query the Hugging Face Inference API with better error handling and response parsing.
-    """
-    headers = {"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}
-    payload = {"inputs": prompt}
-
+# Check and handle FAISS index
+if not os.path.exists(faiss_index_file):
+    logging.info(f"FAISS index not found at {faiss_index_file}. Generating embeddings and creating FAISS index...")
     try:
-        response = requests.post(HUGGINGFACE_API_URL, headers=headers, json=payload)
-        response.raise_for_status()
-        result = response.json()
+        store_embeddings_and_faiss(records, faiss_index_file, vector_model)
+        logging.info("FAISS index successfully created.")
+    except Exception as e:
+        logging.error(f"Error during FAISS index creation: {e}")
+        raise e
+else:
+    logging.info(f"FAISS index found at {faiss_index_file}. Attempting to load the index...")
+index = load_faiss_index(faiss_index_file)
 
-        # Extract the generated text properly
-        if isinstance(result, list) and "generated_text" in result[0]:
-            return result[0]["generated_text"].strip()
-        else:
-            logging.error(f"Unexpected response format: {result}")
-            return "The model response could not be processed."
-    except requests.RequestException as e:
-        logging.error(f"Error querying Hugging Face API: {e}")
-        return "The model service is currently unavailable. Please try again later."
-
-def build_vocabulary(records):
-    """
-    Dynamically build a vocabulary from course titles, descriptions, and other terms in the records.
-    """
-    vocabulary = set()
-    for record in records:
-        for field in record:
-            if isinstance(field, str):
-                vocabulary.update(field.lower().split())
-    return list(vocabulary)
+# Validate the FAISS index
+if index is None:
+    logging.error(f"Failed to load FAISS index from {faiss_index_file}.")
+    raise Exception("FAISS index could not be loaded.")
+elif index.ntotal != len(records):
+    logging.error(f"FAISS index validation failed: index.ntotal={index.ntotal}, expected={len(records)}.")
+    raise Exception("FAISS index does not match the number of records.")
+else:
+    logging.info(f"FAISS index successfully loaded with {index.ntotal} entries.")
 
 @app.route('/search/', methods=['POST'])
 async def search():
     """
-    Unified API to search for relevant courses and provide a conversational response using the LLM.
+    Unified API to search for relevant courses and provide a conversational response using Ollama.
     """
     try:
         if not request.is_json:
+            logging.warning("Invalid JSON input received.")
             return jsonify({"error": "Invalid JSON input"}), 400
 
         data_json = await request.get_json()
         query = data_json.get("query", "").strip()
 
         if not query:
+            logging.warning("Empty query received.")
             return jsonify({"error": "Query is required"}), 400
 
         # Build a dynamic vocabulary
+        logging.info("Building vocabulary from records...")
         vocabulary = build_vocabulary(records)
 
+        # Extract main keywords or refine the query
+        logging.info(f"Refining query using LLM: '{query}'")
+        refined_query = extract_keywords_with_llm(query)
+
         # Preprocess the query
-        processed_query = preprocess_query(query, vocabulary)
+        logging.info(f"Preprocessing the query: '{refined_query}'")
+        processed_query = preprocess_query(refined_query, vocabulary)
         logging.debug(f"Processed query: {processed_query}")
 
         # Vectorize the processed query
+        logging.info("Vectorizing the processed query...")
         user_vector = cached_vectorize_input(processed_query)
 
         # Perform FAISS search
+        logging.info("Performing FAISS search...")
         D, indices = index.search(np.array([user_vector]).astype('float32'), k=5)
 
         logging.debug(f"FAISS distances: {D[0]}")
         logging.debug(f"FAISS indices: {indices[0]}")
 
         # Filter results by distance threshold
-        threshold = 1.1
+        threshold = 1.0
         valid_results = []
         query_keywords = set(processed_query.split())
 
         for i, idx in enumerate(indices[0]):
             if D[0][i] < threshold:
                 course = records[idx]
-                combined_text = combine_course_fields_with_weights(course).lower()
-                if any(keyword in combined_text for keyword in query_keywords):
-                    valid_results.append((course, D[0][i]))
+                valid_results.append(course)
 
         if valid_results:
-            top_result, top_distance = valid_results[0]
+            logging.info(f"Found {len(valid_results)} valid results. Preparing the top result...")
+            top_result = valid_results[0]
+            platform_info = "an online course" if top_result[11] == "O" else "taught in a university"
 
-            # Prepare a natural prompt for response generation
-            platform_info = "available online" if top_result[11] == "O" else "offered at a university"
-
-            course_details = f"The course '{top_result[0]}' is {platform_info}."
-            if top_result[2]:
-                course_details += f" It focuses on: {top_result[2]}"
-
-            response = query_huggingface(
-                f"Here is some information about a course that might interest you: {course_details}. "
-                "Can you provide a friendly and engaging summary to help someone decide if it's suitable for them?"
+            response = ollama_llm(
+                f"If you're interested in '{query}', you might enjoy the course '{top_result[0]}'.\n\n"
+                f"This course is {platform_info}.\n\n"
+                f"Here's a quick summary: {top_result[2]}\n\nPlease summarize this course in a conversational and engaging manner."
             )
-
             return jsonify({
                 "result": {
                     "title": top_result[0],
@@ -206,14 +138,17 @@ async def search():
                     "frequency": top_result[8],
                     "duration": top_result[9],
                     "course_type": top_result[10],
-                    "platform": platform_info
+                    "platform": top_result[11],
+                    "platform_info": platform_info
                 },
                 "response": response
             }), 200
 
-        response = query_huggingface(
-            f"No relevant courses were found for the query '{query}'. "
-            "Could you suggest ways to refine the search or provide alternative recommendations?"
+        # No relevant course found
+        logging.info("No relevant courses found for the query.")
+        response = ollama_llm(
+            f"No relevant courses were found for the query '{query}'.\n\n"
+            "Please summarize why no relevant courses were found and suggest refining the search criteria."
         )
         return jsonify({
             "result": {},
@@ -225,4 +160,4 @@ async def search():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=3000)
+    app.run(host="0.0.0.0", debug=False, port=3000)

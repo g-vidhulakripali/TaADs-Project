@@ -1,6 +1,51 @@
+from cachetools import cached, TTLCache
+import logging
+from sentence_transformers import SentenceTransformer
 import re
 import difflib
+from langchain.llms import Ollama
 
+# Cache for vectorization
+vector_cache = TTLCache(maxsize=100, ttl=300)
+llm_name = 'all-mpnet-base-v2'
+# Load SentenceTransformer model for vectorization
+logging.info("Loading SentenceTransformer model for vectorization...")
+vector_model = SentenceTransformer(llm_name)
+
+ollama_llm = Ollama(model="mistral")
+
+# Function to preprocess query
+def preprocess_query(query, vocabulary):
+    """
+    Preprocess the query by removing filler words, correcting common misspellings,
+    and focusing on core terms.
+    """
+    query = re.sub(r"[^\w\s]", "", query)
+
+    processed_words = []
+    for word in query.lower().split():
+        matches = difflib.get_close_matches(word, vocabulary, n=1, cutoff=0.8)
+        if matches:
+            processed_words.append(matches[0])
+        else:
+            processed_words.append(word)
+
+    return " ".join(processed_words).strip()
+
+# Function to extract keywords with LLM
+def extract_keywords_with_llm(query):
+    """
+    Use the LLM to extract keywords or refine the intent of the query.
+    """
+    try:
+        refined_query = ollama_llm(f"Extract the main keywords or intent from the following query: '{query}'")
+        logging.debug(f"Refined query from LLM: {refined_query}")
+        return refined_query.strip()
+    except Exception as e:
+        logging.error(f"Error extracting keywords with LLM: {e}")
+        return query  # Fallback to original query
+
+# Function to build vocabulary
 def build_vocabulary(records):
     """
     Dynamically build a vocabulary from course titles, descriptions, and other terms in the records.
@@ -12,52 +57,8 @@ def build_vocabulary(records):
                 vocabulary.update(field.lower().split())
     return list(vocabulary)
 
-def preprocess_query(query, vocabulary):
-    """
-    Preprocess the query by removing filler words, correcting common misspellings,
-    and focusing on core terms.
-    """
-    query = re.sub(r"[^\w\s]", "", query)
-    processed_words = []
-    for word in query.lower().split():
-        matches = difflib.get_close_matches(word, vocabulary, n=1, cutoff=0.8)
-        if matches:
-            processed_words.append(matches[0])
-        else:
-            processed_words.append(word)
-    return " ".join(processed_words).strip()
-
-# import requests
-# import logging
-#
-# def query_huggingface(prompt, api_url, api_token):
-#     """
-#     Query the Hugging Face Inference API for text generation.
-#
-#     Args:
-#         prompt (str): The input prompt for the model.
-#         api_url (str): The Hugging Face model API endpoint.
-#         api_token (str): The API token for authentication.
-#
-#     Returns:
-#         str: The generated text response from the model.
-#     """
-#     headers = {"Authorization": f"Bearer {api_token}"}
-#     payload = {"inputs": prompt}
-#
-#     try:
-#         logging.info(f"Querying Hugging Face API with prompt: {prompt}")
-#         response = requests.post(api_url, headers=headers, json=payload)
-#         response.raise_for_status()
-#         result = response.json()
-#
-#         # Extract the generated text
-#         if isinstance(result, list) and "generated_text" in result[0]:
-#             return result[0]["generated_text"].strip()
-#         else:
-#             logging.error(f"Unexpected response format: {result}")
-#             return "The model response could not be processed."
-#     except requests.RequestException as e:
-#         logging.error(f"Error querying Hugging Face API: {e}")
-#         return "The model service is currently unavailable. Please try again later."
-#
+# Vectorization with caching
+@cached(vector_cache)
+def cached_vectorize_input(user_input):
+    """Cache vectorization to speed up repeated queries."""
+    return vector_model.encode([user_input])[0]
