@@ -4,23 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5e5017f1-5db1-40a0-a47e-a3a2c55e3ce3" name="Changes" comment="Config env with huggingface">
-      <change afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/embeddings/embeddings_handler.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/HMI (Project).iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/RAG_Model.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/faiss_index/faiss_index.idx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/api/api_utils.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/api/server.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/api/server.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/embeddings/load_index.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/embeddings/store_index.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/preprocessing/cached_vectorization.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/preprocessing/query_preprocessor.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/preprocessing/query_preprocessor.py" afterDir="false" />
-    </list>
+    <list default="true" id="5e5017f1-5db1-40a0-a47e-a3a2c55e3ce3" name="Changes" comment="Config env with huggingface" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
