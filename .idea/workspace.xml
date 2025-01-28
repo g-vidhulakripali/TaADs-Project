@@ -5,43 +5,23 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5e5017f1-5db1-40a0-a47e-a3a2c55e3ce3" name="Changes" comment="Config env with huggingface">
-      <change afterPath="$PROJECT_DIR$/data/courses/CoursesData.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/course-catalog.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Agile Software Development.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Automotive Technology Mgmt_MD.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Behavioural Finance and Investments_MHE.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Business Planning_NR.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Competition Policy and Regulation_KH.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Digital Finance_N.N..docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Digital Transformation and Value of Data_ Dr. Christian Leyh.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Economic Philosophy_RR.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Financial Markets_MHE.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Industrial Economics_KH.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/International Monetary Economics_RR.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/International and European Economic Law_MH.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Investment Appraisal_PS.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Labour Economics_WS.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/MB_ Automation Control en.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/MB_ Simul Methods for Mech Sysz en.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/MB_ Systemtheory en.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/MB_Communication_Systems en.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/MB_Develop_VDI2206_unvollst en.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Management Control Systems_PS.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Marketing Communication_SU.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Organizational Behavior_AK.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Philosophy of Science_MH.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Political Philosophy_RR.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Purchasing Strategy_MD.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Regional Economics_WS.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Strategic Brand Management_SU.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Strategic International Human Resources Management_AK.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Sustainable Finance_MHE.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/en/Valuation and Financial Analysis_MHE.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/to_process/Modulbeschreibungen_International Business Law (LL.B.) .doc" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/to_process/Modulhandbuch_Applied Computer Science_MSc .docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/courses/zqm_modul/to_process/~$dulbeschreibungen_International Business Law (LL.B.) .doc" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/db/courses.sqlite" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/faiss_index/faiss_index.idx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/config/config.env" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/api/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/api/api_utils.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/api/server.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/db/db_utils.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/device/device_utils.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/embeddings/load_index.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/embeddings/store_index.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/logging_config.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/models/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/models/embeddings_generator.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/preprocessing/cached_vectorization.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/preprocessing/query_preprocessor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/faiss_index/faiss_index.idx" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -83,32 +63,37 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.api_utils (1).executor": "Run",
-    "Python.api_utils.executor": "Run",
-    "Python.create_faiss_index.executor": "Run",
-    "Python.initialize.executor": "Run",
-    "Python.load_file.executor": "Run",
-    "Python.server.executor": "Run",
-    "Python.trainer (1).executor": "Run",
-    "Python.trainer (2).executor": "Run",
-    "Python.trainer.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "file__structuring",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "D:/Coding_Projects/Git_Hub_Projects/TaADs-Project",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.api_utils (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.api_utils.executor&quot;: &quot;Run&quot;,
+    &quot;Python.create_faiss_index.executor&quot;: &quot;Run&quot;,
+    &quot;Python.embeddings_generator.executor&quot;: &quot;Run&quot;,
+    &quot;Python.initialize.executor&quot;: &quot;Run&quot;,
+    &quot;Python.load_file.executor&quot;: &quot;Run&quot;,
+    &quot;Python.server.executor&quot;: &quot;Run&quot;,
+    &quot;Python.trainer (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.trainer (2).executor&quot;: &quot;Run&quot;,
+    &quot;Python.trainer.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;file__structuring&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/Coding_Projects/Git_Hub_Projects/TaADs-Project&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.intellij.pycharm.community.ide.impl.configuration.PythonContentEntriesConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="D:\Coding_Projects\Git_Hub_Projects\TaADs-Project" />
+      <recent name="D:\Coding_Projects\Git_Hub_Projects\TaADs-Project\src\preprocessing" />
       <recent name="D:\Coding_Projects\Git_Hub_Projects\TaADs-Project\util" />
       <recent name="D:\Coding_Projects\Git_Hub_Projects\TaADs-Project\model_trainer" />
     </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\Coding_Projects\Git_Hub_Projects\TaADs-Project\src\preprocessing" />
+    </key>
   </component>
-  <component name="RunManager" selected="Python.trainer">
+  <component name="RunManager" selected="Python.server">
     <configuration default="true" type="JetRunConfigurationType">
       <module name="HMI (Project)" />
       <method v="2">
@@ -122,7 +107,7 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
-    <configuration name="initialize" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="embeddings_generator" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="HMI (Project)" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -131,11 +116,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="SDK_NAME" value="Python 3.11 (pythonProject)" />
+      <option name="WORKING_DIRECTORY" value="D:\Coding_Projects\Git_Hub_Projects\TaADs-Project" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/initialize.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/preprocessing/embeddings_generator.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -144,7 +130,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="trainer" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="server" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="HMI (Project)" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -153,11 +139,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/app/embeddings" />
-      <option name="IS_MODULE_SDK" value="false" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/api" />
+      <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/app/embeddings/trainer.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/api/server.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -166,10 +152,14 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <list>
+      <item itemvalue="Python.embeddings_generator" />
+      <item itemvalue="Python.server" />
+    </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.trainer" />
-        <item itemvalue="Python.initialize" />
+        <item itemvalue="Python.server" />
+        <item itemvalue="Python.embeddings_generator" />
       </list>
     </recent_temporary>
   </component>
