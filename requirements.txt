@@ -12,3 +12,4 @@ quart
 transformers
 sentencepiece
 faiss-cpu
+cachetools
